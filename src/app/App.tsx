@@ -4,16 +4,19 @@ import { Product, RequestData } from "../shared/type/type";
 import { generateHeaders, makeApiRequest } from "../shared/api/api";
 import Brand from "../enteties/card/ui/Brand";
 import { StoreContext } from "./context/StoreContext";
+import { observer } from "mobx-react-lite";
 
-const App: React.FC = () => {
+const App: React.FC = observer(() => {
+  const { brandStore } = useContext(StoreContext);
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState<number>(1);
+  const [page, setPage] = useState<any>(1);
+  const [minPrice, setMinPrice] = useState<any | "">("");
+  const [maxPrice, setMaxPrice] = useState<any | "">("");
   const [uniqueProductIds, setUniqueProductIds] = useState<Set<string>>(
     new Set()
   );
-
-  const { brandStore } = useContext(StoreContext);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,12 +38,10 @@ const App: React.FC = () => {
         console.log("Data received:", data);
         if (data && data.result) {
           const productIds: any[] = [...new Set(data.result)];
-          // Проверяем, есть ли новые идентификаторы продуктов
           const newUniqueIds = productIds.filter(
             (id) => !uniqueProductIds.has(id)
           );
           if (newUniqueIds.length > 0 || page === 1) {
-            // Обновляем уникальные идентификаторы только при новых данных или на первой странице
             setUniqueProductIds(
               new Set([...uniqueProductIds, ...newUniqueIds])
             );
@@ -94,47 +95,91 @@ const App: React.FC = () => {
     return productsData;
   };
 
-  const filteredItems = products?.filter((product) => {
+  const filteredItems = products.filter((product) => {
     const brandValues = brandStore.brand.target;
-    console.log(brandValues )
-    if (!brandValues || brandValues.length === 0) {
+    console.log("Brand values:", brandValues);
+
+    const brandMatch =
+      !brandValues ||
+      brandValues.length === 0 ||
+      brandValues.includes(product.brand);
+
+    const searchMatch =
+      product.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.brand.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return brandMatch && searchMatch;
+  });
+
+  const filteredByPriceRange = filteredItems.filter((product) => {
+    if (minPrice === "" && maxPrice === "") {
       return true;
     }
-    return brandValues.includes(product.brand);
+    const price = parseFloat(product.price);
+    const min =
+      minPrice !== "" ? parseFloat(minPrice) : Number.NEGATIVE_INFINITY;
+    const max =
+      maxPrice !== "" ? parseFloat(maxPrice) : Number.POSITIVE_INFINITY;
+    return price >= min && price <= max;
   });
-  
-  console.log("brandStore.brand:", brandStore.brand);
-  console.log("products:", products);
-  console.log("filteredItems:", filteredItems);
+
+  const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMinPrice(e.target.value);
+  };
+
+  const handleMaxPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMaxPrice(e.target.value);
+  };
 
   return (
     <div>
       <h1 className="flex justify-center mb-10 text-4xl">Список товаров</h1>
+      <input
+        className="w-100 border "
+        type="text"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
       <Brand />
+      <div>
+        <label>
+          Минимальная цена:
+          <input
+            type="number"
+            value={minPrice}
+            onChange={handleMinPriceChange}
+          />
+        </label>
+        <label>
+          Максимальная цена:
+          <input
+            type="number"
+            value={maxPrice}
+            onChange={handleMaxPriceChange}
+          />
+        </label>
+      </div>
       {error && <div style={{ color: "red" }}>{error}</div>}
       <div className="grid grid-cols-5 gap-10">
-        {filteredItems &&
-          [
-            ...new Map(filteredItems.map((product) => [product.id, product])),
-          ].map(([id, product]) => (
-            <Card
-              key={id}
-              id={id}
-              product={product.product}
-              price={product.price}
-              brand={product.brand}
-            />
-          ))}
+        {filteredByPriceRange.map((product) => (
+          <Card
+            key={product.id}
+            id={product.id}
+            product={product.product}
+            price={product.price}
+            brand={product.brand}
+          />
+        ))}
       </div>
-      <div className="flex justify-between mt-10 mb-10  ">
+      <div className="flex justify-between mt-10 mb-10">
         <button
-          className=" ml-3 rounded  bg-slate-400 w-13 h-10"
+          className="ml-3 rounded bg-slate-400 w-13 h-10"
           onClick={() => setPage((prevPage) => Math.max(prevPage - 1, 1))}
         >
           Предыдущая страница
         </button>
         <button
-          className=" mr-3 rounded bg-slate-400 w-13 h-10"
+          className="mr-3 rounded bg-slate-400 w-13 h-10"
           onClick={() => setPage((prevPage) => prevPage + 1)}
         >
           Следующая страница
@@ -142,6 +187,6 @@ const App: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 export default App;

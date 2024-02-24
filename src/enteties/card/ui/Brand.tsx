@@ -14,23 +14,30 @@ const Brand = observer(() => {
     "Baraka",
     "Casato",
     "Imma",
-    "Unknown"
+    "Unknown",
   ];
   const { brandStore } = useContext(StoreContext);
+
+  const selectedBrands = brandStore.brand.target || [];
+    const handleToggleBrand = (brand: string) => {
+      console.log("Toggling brand:", brand);
+      brandStore.toggleBrand(brand);
+    };
+
   return (
-    <ul className=" flex justify-between mr-3 ml-3">
-      {brandArray.map((brandArray) => (
-        <li className="" key={brandArray}>
-          {brandArray}
+    <ul className="flex justify-between mr-3 ml-3">
+      {brandArray.map((brand) => (
+        <li key={brand}>
+          {brand}
           <input
             type="checkbox"
-            checked={brandStore.brand.includes(brandArray)}
-            onChange={() => brandStore.toggleBrand(brandArray)}
+            checked={selectedBrands.includes(brand)}
+            onChange={() => handleToggleBrand(brand)}
           />
         </li>
       ))}
     </ul>
   );
-})
+});
 
 export default Brand;

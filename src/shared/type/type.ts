@@ -9,7 +9,7 @@ export interface Product {
   id: string;
   product: string;
   name: string;
-  price: number;
+  price: number | any;
   brand: string;
 }
 
