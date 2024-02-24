@@ -22,6 +22,8 @@ const Brand = observer(() => {
     const handleToggleBrand = (brand: string) => {
       console.log("Toggling brand:", brand);
       brandStore.toggleBrand(brand);
+  
+      brandStore.setBrand([...brandStore.brand.target]);
     };
 
   return (
