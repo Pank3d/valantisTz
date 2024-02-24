@@ -1,48 +1,9 @@
-import React, { useEffect, useState } from "react";
-import axios, { AxiosResponse, AxiosError } from "axios";
-import md5 from "md5-js";
-import Card from "../enteties/card/Card";
-import { Product, RequestData, RequestHeaders } from "../shared/type/type";
-
-
-
-const generateHeaders = (password: string): RequestHeaders => {
-  const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const stringToHash = `${password}_${currentDate}`;
-  const hash = md5(stringToHash);
-
-  return {
-    "X-Auth": hash,
-  };
-};
-
-const makeApiRequest = async (
-  url: string,
-  requestData: RequestData,
-  headers: any,
-  retryCount: number = 3
-): Promise<any> => {
-  try {
-    const response: AxiosResponse<any> = await axios.post(url, requestData, {
-      headers,
-      timeout: 10000,
-    });
-    return response.data;
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error("Произошла ошибка при выполнении запроса:", axiosError);
-    if (axiosError.response?.data) {
-      console.error("Идентификатор ошибки:", axiosError.response.data);
-    }
-
-    if (retryCount > 0) {
-      console.log(`Повторный запрос. Осталось попыток: ${retryCount}`);
-      return makeApiRequest(url, requestData, headers, retryCount - 1);
-    } else {
-      throw new Error("Произошла ошибка при выполнении запроса");
-    }
-  }
-};
+import React, { useContext, useEffect, useState } from "react";
+import { Card } from "../enteties/card/ui/Card";
+import { Product, RequestData } from "../shared/type/type";
+import { generateHeaders, makeApiRequest } from "../shared/api/api";
+import Brand from "../enteties/card/ui/Brand";
+import { StoreContext } from "./context/StoreContext";
 
 const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -52,11 +13,13 @@ const App: React.FC = () => {
     new Set()
   );
 
+  const { brandStore } = useContext(StoreContext);
+
   useEffect(() => {
     const fetchData = async () => {
-      const url = "http://api.valantis.store:40000/";
-      const limit = 50; // Количество товаров на странице
-      const offset = (page - 1) * limit; // Смещение для загрузки товаров на текущей странице
+      const url = import.meta.env.VITE_BASE_URL;
+      const limit = 50;
+      const offset = page * limit;
 
       const requestData: RequestData = {
         action: "get_ids",
@@ -71,14 +34,20 @@ const App: React.FC = () => {
         const data = await makeApiRequest(url, requestData, headers);
         console.log("Data received:", data);
         if (data && data.result) {
-          const productIds: string[] = data.result;
-          const uniqueIds = new Set(
-            productIds.filter((id) => !uniqueProductIds.has(id))
-          ); // Фильтруем уже существующие идентификаторы
-          setUniqueProductIds(new Set([...uniqueProductIds, ...uniqueIds])); // Объединяем уникальные идентификаторы с уже существующими
-          const productsData = await fetchProductsData(Array.from(uniqueIds));
-          console.log("Products data:", productsData);
-          setProducts(productsData); // Устанавливаем загруженные товары на текущей странице
+          const productIds: any[] = [...new Set(data.result)];
+          // Проверяем, есть ли новые идентификаторы продуктов
+          const newUniqueIds = productIds.filter(
+            (id) => !uniqueProductIds.has(id)
+          );
+          if (newUniqueIds.length > 0 || page === 1) {
+            // Обновляем уникальные идентификаторы только при новых данных или на первой странице
+            setUniqueProductIds(
+              new Set([...uniqueProductIds, ...newUniqueIds])
+            );
+            const productsData = await fetchProductsData(newUniqueIds);
+            console.log("Products data:", productsData);
+            setProducts((prevProducts) => [...prevProducts, ...productsData]);
+          }
         } else if (data && data.error) {
           setError(data.error);
         } else {
@@ -97,7 +66,7 @@ const App: React.FC = () => {
   }, [page]);
 
   const fetchProductsData = async (productIds: string[]) => {
-    const url = "http://api.valantis.store:40000/";
+    const url = import.meta.env.VITE_BASE_URL;
 
     const requestData: RequestData = {
       action: "get_items",
@@ -125,20 +94,37 @@ const App: React.FC = () => {
     return productsData;
   };
 
+  const filteredItems = products?.filter((product) => {
+    const brandValues = brandStore.brand.target;
+    console.log(brandValues )
+    if (!brandValues || brandValues.length === 0) {
+      return true;
+    }
+    return brandValues.includes(product.brand);
+  });
+  
+  console.log("brandStore.brand:", brandStore.brand);
+  console.log("products:", products);
+  console.log("filteredItems:", filteredItems);
+
   return (
     <div>
       <h1 className="flex justify-center mb-10 text-4xl">Список товаров</h1>
+      <Brand />
       {error && <div style={{ color: "red" }}>{error}</div>}
       <div className="grid grid-cols-5 gap-10">
-        {[...products].map((product) => (
-          <Card
-            key={product.id}
-            id={product.id}
-            product={product.product}
-            price={product.price}
-            brand={product.brand}
-          />
-        ))}
+        {filteredItems &&
+          [
+            ...new Map(filteredItems.map((product) => [product.id, product])),
+          ].map(([id, product]) => (
+            <Card
+              key={id}
+              id={id}
+              product={product.product}
+              price={product.price}
+              brand={product.brand}
+            />
+          ))}
       </div>
       <div className="flex justify-between mt-10 mb-10  ">
         <button
