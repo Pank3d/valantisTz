@@ -7,4 +7,8 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["crypto"],
   },
+  base: "/valantisTz",
+  build: {
+    sourcemap: true,
+  },
 });

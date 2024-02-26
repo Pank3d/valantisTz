@@ -19,6 +19,7 @@ export const makeApiRequest = async (
   retryCount: number = 3
 ): Promise<any> => {
   try {
+    console.log(url);
     const response: AxiosResponse<any> = await axios.post(url, requestData, {
       headers,
       timeout: 10000,

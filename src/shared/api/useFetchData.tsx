@@ -15,7 +15,6 @@ const useFetchData = (page: number) => {
       const url: string = import.meta.env.VITE_BASE_URL;
       const limit: number = 50;
       const offset: number = page * limit;
-
       const requestData: RequestData = {
         action: "get_ids",
         params: { offset, limit },
